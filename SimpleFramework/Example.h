@@ -25,6 +25,9 @@ private:
 
 	bool pause = false;
 
+	bool cam_dragging;
+	glm::vec2 cam_drag_offset;
+
 public:
 	Example();
 	~Example();

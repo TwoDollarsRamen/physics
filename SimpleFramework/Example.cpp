@@ -15,6 +15,10 @@ static float random_float(float min, float max) {
 	return min + scale * (max - min);
 }
 
+static bool circle_vs_point(glm::vec2 point, float r, glm::vec2 centre) {
+	return powf((point.x - centre.x), 2.0f) + pow((point.y - centre.y), 2.0f) < powf(r, 2.0f);
+}
+
 Particle new_particle() {
 	Particle particle = { { 0, 0}, { 0, 0 }, random_float(0.5, 1) };
 
@@ -48,6 +52,10 @@ void Example::Update()
 {
 	//This call ensures that your mouse position and aspect ratio are maintained as correct.
 	GameBase::Update();
+
+	if (cam_dragging) {
+		cameraCentre = cam_drag_offset + cursorPos;
+	}
 
 	//Your physics (or whatever) code goes here!
 
@@ -145,7 +153,7 @@ void Example::OnMouseClick(int mouseButton)
 		for (size_t i = 0; i < force_point_count; i++) {
 			auto& fp = force_points[i];
 
-			if (powf((cursorPos.x - fp.x), 2.0f) + pow((cursorPos.y - fp.y), 2.0f) < powf(force_point_rad, 2.0f)) {
+			if (circle_vs_point(cursorPos, force_point_rad, fp)) {
 				dragging = true;
 				drag_handle = i;
 				return;
@@ -156,20 +164,27 @@ void Example::OnMouseClick(int mouseButton)
 		if (force_point_count < force_point_max) {
 			force_points[force_point_count++] = cursorPos;
 		}
+	} else if (mouseButton == GLFW_MOUSE_BUTTON_MIDDLE) {
+		cam_dragging = true;
+		cam_drag_offset = cameraCentre - cursorPos;
 	}
 }
 
 void Example::OnMouseRelease(int mouseButton) {
 	if (ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) { return; }
 
-	dragging = false;
+	if (mouseButton == GLFW_MOUSE_BUTTON_MIDDLE) {
+		cam_dragging = false;
+	} else if (mouseButton == GLFW_MOUSE_BUTTON_LEFT) {
+		dragging = false;
+	}
 
 	/* Removing force points*/
 	if (mouseButton == GLFW_MOUSE_BUTTON_RIGHT) {
 		for (size_t i = 0; i < force_point_count; i++) {
 			auto& fp = force_points[i];
 
-			if (powf((cursorPos.x - fp.x), 2.0f) + pow((cursorPos.y - fp.y), 2.0f) < powf(force_point_rad, 2.0f)) {
+			if (circle_vs_point(cursorPos, force_point_rad, fp)) {
 				if (particle_count > 1) {
 					force_points[i] = force_points[force_point_count - 1];
 				}

@@ -10,7 +10,6 @@
 class GameBase
 {
 	float cameraHeight = 10.0f;
-	glm::vec2 cameraCentre = { 0.0f, 0.0f };
 	GLFWwindow* window = nullptr;
 
 	ShaderProgram simpleShader;
@@ -26,6 +25,8 @@ class GameBase
 
 
 protected:
+	glm::vec2 cameraCentre = { 0.0f, 0.0f };
+	
 	glm::vec2 cursorPos = { 0.0f,0.0f };
 	bool leftButtonDown = false;
 	bool rightButtonDown = false;
