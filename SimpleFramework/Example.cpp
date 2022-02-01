@@ -95,7 +95,7 @@ void Example::Render()
 		auto& particle = particles[i];
 
 		lines.DrawCircle(particle.position, particle.life,
-			glm::vec3(glm::normalize(particle.velocity), particle.life));
+			glm::vec3(glm::normalize(particle.velocity), particle.life), 10);
 	}
 
 	for (size_t i = 0; i < force_point_count; i++) {
@@ -169,6 +169,8 @@ void Example::Render()
 
 		ImGui::EndMenu();
 	}
+
+	ImGui::Text("FPS: %g", 1.0 / et);
 
 	ImGui::EndMainMenuBar();
 

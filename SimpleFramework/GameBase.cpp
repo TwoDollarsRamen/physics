@@ -4,6 +4,8 @@
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
 
+double now, last;
+
 glm::mat4 GameBase::GetCameraTransform() const
 {
 	return glm::ortho(
@@ -146,6 +148,10 @@ void GameBase::Render()
 
 	glfwSwapBuffers(window);
 	glfwPollEvents();
+
+	now = glfwGetTime();
+	et = (float)(now - last);
+	last = now;
 }
 
 bool GameBase::IsRunning() const

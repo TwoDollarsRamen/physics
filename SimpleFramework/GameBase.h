@@ -32,6 +32,7 @@ protected:
 	//float time = 0.0f;
 	LineRenderer lines;
 	const float deltaTime = 0.0166667f;	//Delta time should be constant for physics simulations.
+	float et; /* Delta time but not constant. For things like profiling and FPS calculation. */
 
 public:
 	GameBase();
