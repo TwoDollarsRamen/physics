@@ -9,6 +9,8 @@ struct Particle {
 	glm::vec2 velocity;
 
 	float life;
+	
+	float mass;
 };
 
 class Example : public GameBase

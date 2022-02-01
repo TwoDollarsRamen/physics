@@ -25,6 +25,8 @@ Particle new_particle() {
 	particle.velocity.x = random_float(-5, 5);
 	particle.velocity.y = random_float(-5, 5);
 
+	particle.mass = 1.0f;
+
 	return particle;
 }
 
@@ -71,6 +73,7 @@ void Example::Update()
 		/* Force points influence the velocity of particles.
 		 *
 		 * This can lead to some quite interesting behaviour. */
+		glm::vec2 force = { 0, 0 };
 		for (size_t ii = 0; ii < force_point_count; ii++) {
 			auto& fp = force_points[ii];
 
@@ -78,8 +81,11 @@ void Example::Update()
 			auto inv_dist_to_fp = 1.0f / glm::length(to_fp);
 			auto to_fp_vec = glm::normalize(to_fp);
 
-			particle.velocity += (inv_dist_to_fp * to_fp_vec);
+			force += (inv_dist_to_fp * to_fp_vec);
 		}
+
+		glm::vec2 accel = force / particle.mass;
+		particle.velocity += force * deltaTime;
 
 		particle.velocity.y += gravity * deltaTime;
 
@@ -210,6 +216,7 @@ void Example::save_state(const char* path) {
 			fwrite(&particle.velocity.x, sizeof(particle.velocity.x), 1, file);
 			fwrite(&particle.velocity.y, sizeof(particle.velocity.y), 1, file);
 			fwrite(&particle.life, sizeof(particle.life), 1, file);
+			fwrite(&particle.mass, sizeof(particle.mass), 1, file);
 		}
 
 		for (size_t i = 0; i < force_point_count; i++) {
@@ -239,6 +246,7 @@ void Example::load_state(const char* path) {
 			fread(&particle.velocity.x, sizeof(particle.velocity.x), 1, file);
 			fread(&particle.velocity.y, sizeof(particle.velocity.y), 1, file);
 			fread(&particle.life, sizeof(particle.life), 1, file);
+			fread(&particle.mass, sizeof(particle.mass), 1, file);
 		}
 
 		for (size_t i = 0; i < force_point_count; i++) {
