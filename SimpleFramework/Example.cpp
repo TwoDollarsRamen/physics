@@ -51,6 +51,8 @@ void Example::Update()
 
 	//Your physics (or whatever) code goes here!
 
+	if (pause) { return; }
+
 	while (particle_count < particle_max) {
 		particles[particle_count++] = new_particle();
 	}
@@ -116,6 +118,12 @@ void Example::Render()
 		if (ImGui::MenuItem("Load")) {
 			load_state("save.dat");
 		}
+
+		ImGui::EndMenu();
+	}
+
+	if (ImGui::BeginMenu("Simulation")) {
+		ImGui::MenuItem("Paused", "", &pause);
 
 		ImGui::EndMenu();
 	}

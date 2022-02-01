@@ -23,6 +23,8 @@ private:
 	bool dragging;
 	size_t drag_handle;
 
+	bool pause = false;
+
 public:
 	Example();
 	~Example();
