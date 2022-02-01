@@ -110,61 +110,11 @@ void Example::Render()
 	 * saved and loaded again ¯\_(ツ)_/¯ */
 	if (ImGui::BeginMenu("File")) {
 		if (ImGui::MenuItem("Save")) {
-			FILE* file = fopen("save.dat", "wb");
-			if (file) {
-				fwrite(&particle_count, sizeof(particle_count), 1, file);
-				fwrite(&force_point_count, sizeof(force_point_count), 1, file);
-
-				for (size_t i = 0; i < particle_count; i++) {
-					auto& particle = particles[i];
-
-					fwrite(&particle.position.x, sizeof(particle.position.x), 1, file);
-					fwrite(&particle.position.y, sizeof(particle.position.y), 1, file);
-					fwrite(&particle.velocity.x, sizeof(particle.velocity.x), 1, file);
-					fwrite(&particle.velocity.y, sizeof(particle.velocity.y), 1, file);
-					fwrite(&particle.life, sizeof(particle.life), 1, file);
-				}
-
-				for (size_t i = 0; i < force_point_count; i++) {
-					auto& fp = force_points[i];
-
-					fwrite(&fp.x, sizeof(fp.x), 1, file);
-					fwrite(&fp.y, sizeof(fp.y), 1, file);
-				}
-
-				fclose(file);
-			} else {
-				fprintf(stderr, "Failed to fopen file `save.dat'.\n");
-			}
+			save_state("save.dat");
 		}
 
 		if (ImGui::MenuItem("Load")) {
-			FILE* file = fopen("save.dat", "rb");
-			if (file) {
-				fread(&particle_count, sizeof(particle_count), 1, file);
-				fread(&force_point_count, sizeof(force_point_count), 1, file);
-
-				for (size_t i = 0; i < particle_count; i++) {
-					auto& particle = particles[i];
-
-					fread(&particle.position.x, sizeof(particle.position.x), 1, file);
-					fread(&particle.position.y, sizeof(particle.position.y), 1, file);
-					fread(&particle.velocity.x, sizeof(particle.velocity.x), 1, file);
-					fread(&particle.velocity.y, sizeof(particle.velocity.y), 1, file);
-					fread(&particle.life, sizeof(particle.life), 1, file);
-				}
-
-				for (size_t i = 0; i < force_point_count; i++) {
-					auto& fp = force_points[i];
-
-					fread(&fp.x, sizeof(fp.x), 1, file);
-					fread(&fp.y, sizeof(fp.y), 1, file);
-				}
-
-				fclose(file);
-			} else {
-				fprintf(stderr, "Failed to fopen file `save.dat'.\n");
-			}
+			load_state("save.dat");
 		}
 
 		ImGui::EndMenu();
@@ -220,5 +170,63 @@ void Example::OnMouseRelease(int mouseButton) {
 				return;
 			}
 		}
+	}
+}
+
+void Example::save_state(const char* path) {
+	FILE* file = fopen(path, "wb");
+	if (file) {
+		fwrite(&particle_count, sizeof(particle_count), 1, file);
+		fwrite(&force_point_count, sizeof(force_point_count), 1, file);
+
+		for (size_t i = 0; i < particle_count; i++) {
+			auto& particle = particles[i];
+
+			fwrite(&particle.position.x, sizeof(particle.position.x), 1, file);
+			fwrite(&particle.position.y, sizeof(particle.position.y), 1, file);
+			fwrite(&particle.velocity.x, sizeof(particle.velocity.x), 1, file);
+			fwrite(&particle.velocity.y, sizeof(particle.velocity.y), 1, file);
+			fwrite(&particle.life, sizeof(particle.life), 1, file);
+		}
+
+		for (size_t i = 0; i < force_point_count; i++) {
+			auto& fp = force_points[i];
+
+			fwrite(&fp.x, sizeof(fp.x), 1, file);
+			fwrite(&fp.y, sizeof(fp.y), 1, file);
+		}
+
+		fclose(file);
+	} else {
+		fprintf(stderr, "Failed to fopen file `%s'.\n", path);
+	}
+}
+
+void Example::load_state(const char* path) {
+	FILE* file = fopen("save.dat", "rb");
+	if (file) {
+		fread(&particle_count, sizeof(particle_count), 1, file);
+		fread(&force_point_count, sizeof(force_point_count), 1, file);
+
+		for (size_t i = 0; i < particle_count; i++) {
+			auto& particle = particles[i];
+
+			fread(&particle.position.x, sizeof(particle.position.x), 1, file);
+			fread(&particle.position.y, sizeof(particle.position.y), 1, file);
+			fread(&particle.velocity.x, sizeof(particle.velocity.x), 1, file);
+			fread(&particle.velocity.y, sizeof(particle.velocity.y), 1, file);
+			fread(&particle.life, sizeof(particle.life), 1, file);
+		}
+
+		for (size_t i = 0; i < force_point_count; i++) {
+			auto& fp = force_points[i];
+
+			fread(&fp.x, sizeof(fp.x), 1, file);
+			fread(&fp.y, sizeof(fp.y), 1, file);
+		}
+
+		fclose(file);
+	} else {
+		fprintf(stderr, "Failed to fopen file `%s'.\n", path);
 	}
 }

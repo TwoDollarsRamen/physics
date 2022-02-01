@@ -33,4 +33,7 @@ public:
 
 	void OnMouseClick(int mouseButton);
 	void OnMouseRelease(int mouseButton);
+
+	void save_state(const char* path);
+	void load_state(const char* path);
 };
