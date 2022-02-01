@@ -58,6 +58,9 @@ void Example::Update()
 	for (size_t i = 0; i < particle_count; i++) {
 		auto& particle = particles[i];
 
+		/* Force points influence the velocity of particles.
+		 *
+		 * This can lead to some quite interesting behaviour. */
 		for (size_t ii = 0; ii < force_point_count; ii++) {
 			auto& fp = force_points[ii];
 
@@ -177,6 +180,7 @@ void Example::OnMouseClick(int mouseButton)
 {
 	if (ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) { return; }
 
+	/* Adding/dragging force points */
 	if (mouseButton == GLFW_MOUSE_BUTTON_LEFT) {
 		for (size_t i = 0; i < force_point_count; i++) {
 			auto& fp = force_points[i];
@@ -188,6 +192,7 @@ void Example::OnMouseClick(int mouseButton)
 			}
 		}
 
+		/* Nothing is being dragged, we want to add a new point. */
 		if (force_point_count < force_point_max) {
 			force_points[force_point_count++] = cursorPos;
 		}
@@ -199,6 +204,7 @@ void Example::OnMouseRelease(int mouseButton) {
 
 	dragging = false;
 
+	/* Removing force points*/
 	if (mouseButton == GLFW_MOUSE_BUTTON_RIGHT) {
 		for (size_t i = 0; i < force_point_count; i++) {
 			auto& fp = force_points[i];
