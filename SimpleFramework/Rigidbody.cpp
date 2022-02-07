@@ -9,11 +9,42 @@
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
 #define gravity -0.0f
 
-static bool circle_vs_circle(Rigidbody* a, Rigidbody* b) {
+static CollisionData circle_vs_circle(Rigidbody* a, Rigidbody* b) {
 	assert(a && b);
+
+	CollisionData result;
+
+	if (glm::length(a->position - b->position)
+		> a->shape.circle.radius + b->shape.circle.radius) {
+		result.depth = 0.0f;
+		return result;
+	}
+
+	result.position = a->position - b->position;
+	result.normal = glm::normalize(result.position);
 	
-	return glm::length(a->position - b->position)
-		<= a->shape.circle.radius + b->shape.circle.radius;
+	result.depth = 1.0f;
+
+	result.a = a;
+	result.b = b;
+
+	return result;
+}
+
+static CollisionData aabb_vs_aabb(Rigidbody* a, Rigidbody* b) {
+	return {};
+}
+
+static CollisionData aabb_vs_circle(Rigidbody* a, Rigidbody* b) {
+	return {};
+}
+
+static CollisionData circle_vs_aabb(Rigidbody* a, Rigidbody* b) {
+	return aabb_vs_circle(a, b);
+}
+
+static void resolve_collision(CollisionData cd, Rigidbody* a, Rigidbody* b) {
+
 }
 
 void Rigidbody::add_force(glm::vec2 force) {
@@ -28,6 +59,9 @@ void Rigidbody::update(float ts) {
 
 RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f) {
 	detectors[{Rigidbody::circle, Rigidbody::circle}] = circle_vs_circle;
+	detectors[{Rigidbody::aabb,   Rigidbody::aabb}]   = aabb_vs_aabb;
+	detectors[{Rigidbody::circle, Rigidbody::aabb}]   = circle_vs_aabb;
+	detectors[{Rigidbody::aabb,   Rigidbody::circle}] = aabb_vs_circle;
 
 	rigidbodies = new Rigidbody[max_rigidbodies];
 
@@ -59,7 +93,7 @@ void RigidbodySim::Update() {
 			for (size_t j = i + 1; j < rigidbody_count; j++) {
 				auto b = rigidbodies + j;
 
-				if (detectors[{a->type, b->type}](a, b)) {
+				if (detectors[{a->type, b->type}](a, b).depth > 0.0f) {
 					a->color = { 1.0f, 0.0f, 0.0f };
 					b->color = { 1.0f, 0.0f, 0.0f };
 				}

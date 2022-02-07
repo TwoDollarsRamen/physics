@@ -2,17 +2,21 @@
 
 #include "GameBase.h"
 
-#include <functional>
 #include <map>
 
 struct CircleShape {
 	float radius;
 };
 
+struct AABBShape {
+	glm::vec2 size;
+};
+
 class Rigidbody {
 public:
 	enum {
-		circle
+		circle,
+		aabb
 	} type;
 
 	union {
@@ -32,10 +36,10 @@ struct CollisionData {
 	glm::vec2 position, normal;
 	float depth;
 
-	Rigidbody* a, b;
+	Rigidbody* a, * b;
 };
 
-typedef bool (*DetectorFunc)(Rigidbody* a, Rigidbody* b);
+typedef CollisionData (*DetectorFunc)(Rigidbody* a, Rigidbody* b);
 
 class RigidbodySim : public GameBase
 {
