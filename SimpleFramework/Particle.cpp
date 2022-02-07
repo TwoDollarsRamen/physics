@@ -3,7 +3,7 @@
 
 #include <imgui.h>
 
-#include "Example.h"
+#include "Particle.h"
 
 #define particle_max 1000
 #define force_point_max 64
@@ -30,7 +30,7 @@ Particle new_particle() {
 	return particle;
 }
 
-Example::Example() : GameBase()
+ParticleSim::ParticleSim() : GameBase()
 {
 	particle_count = particle_max;
 	particles = new Particle[particle_count];
@@ -38,19 +38,19 @@ Example::Example() : GameBase()
 
 	force_points = new glm::vec2[force_point_max];
 
-	srand(time(0));
+	srand((unsigned int)time(0));
 
 	for (size_t i = 0; i < particle_count; i++) {
 		particles[i] = new_particle();
 	}
 }
 
-Example::~Example() {
+ParticleSim::~ParticleSim() {
 	delete[] particles;
 	delete[] force_points;
 }
 
-void Example::Update()
+void ParticleSim::Update()
 {
 	//This call ensures that your mouse position and aspect ratio are maintained as correct.
 	GameBase::Update();
@@ -81,7 +81,7 @@ void Example::Update()
 			auto inv_dist_to_fp = 1.0f / glm::length(to_fp);
 			auto to_fp_vec = glm::normalize(to_fp);
 
-			force += (inv_dist_to_fp * to_fp_vec);
+			force += (inv_dist_to_fp * to_fp_vec) * 100.0f;
 		}
 
 		glm::vec2 accel = force / particle.mass;
@@ -101,7 +101,7 @@ void Example::Update()
 	}
 }
 
-void Example::Render()
+void ParticleSim::Render()
 {
 	if (dragging) {
 		force_points[drag_handle] = cursorPos;
@@ -150,7 +150,7 @@ void Example::Render()
 	GameBase::Render();
 }
 
-void Example::OnMouseClick(int mouseButton)
+void ParticleSim::OnMouseClick(int mouseButton)
 {
 	if (ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) { return; }
 
@@ -176,7 +176,7 @@ void Example::OnMouseClick(int mouseButton)
 	}
 }
 
-void Example::OnMouseRelease(int mouseButton) {
+void ParticleSim::OnMouseRelease(int mouseButton) {
 	if (ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) { return; }
 
 	if (mouseButton == GLFW_MOUSE_BUTTON_MIDDLE) {
@@ -202,7 +202,7 @@ void Example::OnMouseRelease(int mouseButton) {
 	}
 }
 
-void Example::save_state(const char* path) {
+void ParticleSim::save_state(const char* path) {
 	FILE* file = fopen(path, "wb");
 	if (file) {
 		fwrite(&particle_count, sizeof(particle_count), 1, file);
@@ -232,7 +232,7 @@ void Example::save_state(const char* path) {
 	}
 }
 
-void Example::load_state(const char* path) {
+void ParticleSim::load_state(const char* path) {
 	FILE* file = fopen("save.dat", "rb");
 	if (file) {
 		fread(&particle_count, sizeof(particle_count), 1, file);

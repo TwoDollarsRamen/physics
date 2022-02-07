@@ -9,11 +9,11 @@ struct Particle {
 	glm::vec2 velocity;
 
 	float life;
-	
+
 	float mass;
 };
 
-class Example : public GameBase
+class ParticleSim : public GameBase
 {
 private:
 	Particle* particles;
@@ -31,8 +31,8 @@ private:
 	glm::vec2 cam_drag_offset;
 
 public:
-	Example();
-	~Example();
+	ParticleSim();
+	~ParticleSim();
 
 	void Update();
 

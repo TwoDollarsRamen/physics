@@ -1,13 +1,15 @@
 #include <iostream>
 
+#include "Particle.h"
+#include "Rigidbody.h"
 
-//Include the necessary header file here for your game type
-#include "Example.h"
-
+/* Change this type to build with a different
+ * type of simulation. */
+typedef RigidbodySim sim_t;
 
 int main()
 {
-	Example program;	//Make the type of this variable your game application and you'll be good to go.
+	sim_t program;
 
 	while (program.IsRunning())
 	{
