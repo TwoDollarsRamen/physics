@@ -19,15 +19,20 @@ public:
 		CircleShape circle;
 	} shape;
 
-	glm::vec2 position;
-	glm::vec2 velocity;
-	float orientation;
-	float mass;
+	glm::vec2 position, velocity;
+	float orientation, mass;
 
 	glm::vec3 color;
 
 	void add_force(glm::vec2 force);
 	void update(float ts);
+};
+
+struct CollisionData {
+	glm::vec2 position, normal;
+	float depth;
+
+	Rigidbody* a, b;
 };
 
 typedef bool (*DetectorFunc)(Rigidbody* a, Rigidbody* b);

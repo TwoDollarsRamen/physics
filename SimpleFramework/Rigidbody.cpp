@@ -11,7 +11,6 @@
 
 static bool circle_vs_circle(Rigidbody* a, Rigidbody* b) {
 	assert(a && b);
-	if (a == b) { return false; }
 	
 	return glm::length(a->position - b->position)
 		<= a->shape.circle.radius + b->shape.circle.radius;
@@ -57,11 +56,12 @@ void RigidbodySim::Update() {
 
 		for (size_t i = 0; i < rigidbody_count; i++) {
 			auto a = rigidbodies + i;
-			for (size_t j = 0; j < rigidbody_count; j++) {
+			for (size_t j = i + 1; j < rigidbody_count; j++) {
 				auto b = rigidbodies + j;
 
 				if (detectors[{a->type, b->type}](a, b)) {
 					a->color = { 1.0f, 0.0f, 0.0f };
+					b->color = { 1.0f, 0.0f, 0.0f };
 				}
 			}
 		}
