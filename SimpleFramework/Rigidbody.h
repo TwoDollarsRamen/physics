@@ -12,19 +12,25 @@ struct AABBShape {
 	glm::vec2 size;
 };
 
+struct PlaneShape {
+	glm::vec2 normal;
+};
+
 class Rigidbody {
 public:
 	enum {
 		circle,
-		aabb
+		aabb,
+		plane
 	} type;
 
 	union {
 		CircleShape circle;
+		AABBShape aabb;
 	} shape;
 
 	glm::vec2 position, velocity;
-	float orientation, mass;
+	float orientation, mass, restitution;
 
 	glm::vec3 color;
 
@@ -63,5 +69,6 @@ public:
 	void OnMouseClick(int mouseButton);
 	void OnMouseRelease(int mouseButton);
 
-	Rigidbody* new_sphere(float radius);
+	Rigidbody* new_circle(float radius);
+	Rigidbody* new_aabb(glm::vec2 size);
 };
