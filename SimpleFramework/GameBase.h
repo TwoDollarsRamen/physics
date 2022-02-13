@@ -21,8 +21,6 @@ class GameBase
 
 	const int gridLimits = 10;
 
-	glm::mat4 GetCameraTransform() const;
-
 
 protected:
 	glm::vec2 cameraCentre = { 0.0f, 0.0f };
@@ -35,6 +33,7 @@ protected:
 	const float deltaTime = 0.0166667f;	//Delta time should be constant for physics simulations.
 	float et; /* Delta time but not constant. For things like profiling and FPS calculation. */
 
+	glm::mat4 GetCameraTransform() const;
 public:
 	GameBase();
 	~GameBase();
@@ -44,6 +43,7 @@ public:
 
 	void Update();
 	void Render();
+	void Clear();
 
 	bool IsRunning() const;
 

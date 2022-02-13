@@ -2,8 +2,6 @@
 
 #include "GameBase.h"
 
-#include <map>
-
 struct CircleShape {
 	float radius;
 };
@@ -57,7 +55,7 @@ private:
 
 	float accum;
 
-	std::map<std::pair<int, int>, DetectorFunc> detectors;
+	DetectorFunc detectors[3][3];
 public:
 	RigidbodySim();
 	~RigidbodySim();

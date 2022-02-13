@@ -135,8 +135,6 @@ void GameBase::Update()
 
 void GameBase::Render()
 {
-
-	glClear(GL_COLOR_BUFFER_BIT);
 	glm::mat4 orthoMat = GetCameraTransform();
 	simpleShader.SetUniform("vpMatrix", orthoMat);
 	grid.Draw();	//Grid lines don't change so we just draw them.
@@ -152,6 +150,10 @@ void GameBase::Render()
 	now = glfwGetTime();
 	et = (float)(now - last);
 	last = now;
+}
+
+void GameBase::Clear() {
+	glClear(GL_COLOR_BUFFER_BIT);
 }
 
 bool GameBase::IsRunning() const
