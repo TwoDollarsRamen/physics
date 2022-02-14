@@ -19,7 +19,8 @@ static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 		result.depth = 0.0f;
 		return result;
 	}
-	
+
+	result.position = a->position - b->position;
 	result.normal = glm::normalize(a->position - b->position);
 	
 	result.depth = fabs(glm::length(a->position - b->position) - (a->shape.circle.radius + b->shape.circle.radius));
@@ -36,6 +37,8 @@ static CollisionData aabb_vs_aabb(Rigidbody* b, Rigidbody* a) {
 	glm::vec2 normal = a->position - b->position;
 
 	CollisionData result = {};
+
+	result.position = a->position - b->position;
 
 	auto a_min = a->position - a->shape.aabb.size * 0.5f;
 	auto a_max = a->position + a->shape.aabb.size * 0.5f;
@@ -81,6 +84,9 @@ static CollisionData aabb_vs_aabb(Rigidbody* b, Rigidbody* a) {
 static CollisionData circle_vs_aabb(Rigidbody* a, Rigidbody* b) {
 	glm::vec2 clamped_pos = a->position;
 
+	/* This becomes fucked if the circle is more than just 
+	 * a little bit inside the AABB. */
+
 	auto b_min = b->position - b->shape.aabb.size * 0.5f;
 	auto b_max = b->position + b->shape.aabb.size * 0.5f;
 	
@@ -95,6 +101,7 @@ static CollisionData circle_vs_aabb(Rigidbody* a, Rigidbody* b) {
 	float dist = glm::length(circle_to_clamped);
 	result.depth = a->shape.circle.radius - dist;
 	result.normal = circle_to_clamped / dist;
+	result.position = circle_to_clamped;
 
 	result.a = a;
 	result.b = b;
@@ -166,6 +173,9 @@ void RigidbodySim::Update() {
 			for (size_t j = i + 1; j < rigidbody_count; j++) {
 				auto b = rigidbodies + j;
 
+				/* No point checking two static bodies. */
+				if (a->mass <= 0.0f && b->mass <= 0.0f) { continue; }
+
 				CollisionData cd = detectors[a->type][b->type](a, b);
 				if (cd.depth > 0.0f) {
 					glm::vec2 r_vel = b->velocity - a->velocity;
@@ -179,6 +189,7 @@ void RigidbodySim::Update() {
 					a->position -= a_inv_mass * correction;
 					b->position += b_inv_mass * correction;
 
+					/* Resolve the collision */
 					float r = std::max(a->restitution, b->restitution);
 					float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
 
@@ -186,6 +197,27 @@ void RigidbodySim::Update() {
 
 					b->add_force(force);
 					a->add_force(-force);
+
+					/* Calculate and apply a friction impulse. */
+					auto o_r_vel = r_vel;
+					r_vel = b->velocity - a->velocity;
+
+					glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
+					float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
+
+					/* Average of both bodies' friction values. */
+					float stat_fric = (a->stat_friction + b->stat_friction) / 2;
+
+					glm::vec2 fric_imp;
+					if (std::fabsf(t_j) < j * stat_fric) {
+						fric_imp = t_j * t;
+					} else {
+						float kin_fric = (a->kin_friction + b->kin_friction) / 2;
+						fric_imp = -j * t * kin_fric;
+					}
+
+					b->add_force(fric_imp);
+					a->add_force(-fric_imp);
 				}
 			}
 		}
@@ -242,6 +274,8 @@ Rigidbody* RigidbodySim::new_rigidbody() {
 
 	rb->restitution = 0.5f;
 	rb->mass = 1.0f;
+	rb->stat_friction = 0.1f;
+	rb->kin_friction = 0.1f;
 
 	rb->color = { 1.0f, 1.0f, 1.0f };
 

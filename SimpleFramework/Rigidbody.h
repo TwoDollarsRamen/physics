@@ -28,7 +28,9 @@ public:
 	} shape;
 
 	glm::vec2 position, velocity;
-	float orientation, mass, restitution;
+	float mass, restitution;
+
+	float stat_friction, kin_friction;
 
 	glm::vec3 color;
 
@@ -37,7 +39,7 @@ public:
 };
 
 struct CollisionData {
-	glm::vec2 normal;
+	glm::vec2 position, normal;
 	float depth;
 
 	Rigidbody* a, * b;
