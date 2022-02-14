@@ -142,15 +142,15 @@ RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f) {
 	floor->mass = 0.0f;
 	floor->restitution = 0.0f;
 
-	/*auto left_side = new_aabb({1, 20});
-	left_side->position.x = -4.0f;
+	auto left_side = new_aabb({1, 20});
+	left_side->position.x = -10.0f;
 	left_side->mass = 0.0f;
 	left_side->restitution = 0.0f;
 
 	auto right_side= new_aabb({ 1, 20 });
-	right_side->position.x = 4.0f;
+	right_side->position.x = 10.0f;
 	right_side->mass = 0.0f;
-	right_side->restitution = 0.0f;*/
+	right_side->restitution = 0.0f;
 }
 
 RigidbodySim::~RigidbodySim() {
@@ -180,8 +180,8 @@ void RigidbodySim::Update() {
 				if (cd.depth > 0.0f) {
 					glm::vec2 r_vel = b->velocity - a->velocity;
 
-					float a_inv_mass = 1.0f / a->mass <= 0.0f ? 1.0f : a->mass;
-					float b_inv_mass = 1.0f / b->mass <= 0.0f ? 1.0f : b->mass;
+					float a_inv_mass = a->mass <= 0.0f ? 0.0f : 1.0f / a->mass;
+					float b_inv_mass = b->mass <= 0.0f ? 0.0f : 1.0f / b->mass;
 
 					/* Positionally resolve the collision, to prevent sinking
 					 * when multiple objects are stacked on each other. */
@@ -195,8 +195,8 @@ void RigidbodySim::Update() {
 
 					glm::vec2 force = cd.normal * j;
 
-					b->add_force(force);
 					a->add_force(-force);
+					b->add_force(force);
 
 					/* Calculate and apply a friction impulse. */
 					auto o_r_vel = r_vel;
@@ -216,8 +216,8 @@ void RigidbodySim::Update() {
 						fric_imp = -j * t * kin_fric;
 					}
 
-					b->add_force(fric_imp);
 					a->add_force(-fric_imp);
+					b->add_force(fric_imp);
 				}
 			}
 		}
@@ -254,13 +254,13 @@ void RigidbodySim::Render() {
 
 void RigidbodySim::OnMouseClick(int mouseButton) {
 	if (mouseButton == GLFW_MOUSE_BUTTON_LEFT) {
-		auto rb = new_circle(0.5f);
+		auto rb = new_circle(1.0f);
 		rb->position = cursorPos;
-		rb->restitution = 0.5f;
+		rb->restitution = 1.0f;
 	} else if (mouseButton == GLFW_MOUSE_BUTTON_RIGHT) {
 		auto rb = new_aabb({ 1.0f, 1.0f });
 		rb->position = cursorPos;
-		rb->restitution = 0.5f;
+		rb->restitution = 1.0f;
 	}
 }
 
@@ -272,8 +272,8 @@ Rigidbody* RigidbodySim::new_rigidbody() {
 
 	auto rb = rigidbodies + rigidbody_count++;
 
-	rb->restitution = 0.5f;
-	rb->mass = 1.0f;
+	rb->restitution = 0.0f;
+	rb->mass = 1.0;
 	rb->stat_friction = 0.1f;
 	rb->kin_friction = 0.1f;
 
