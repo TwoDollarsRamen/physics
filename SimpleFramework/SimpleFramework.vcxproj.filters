@@ -43,6 +43,7 @@
     <ClCompile Include="EntryPoint.cpp" />
     <ClCompile Include="Particle.cpp" />
     <ClCompile Include="Rigidbody.cpp" />
+    <ClCompile Include="SaveDialog.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GLFWCallbacks.h">
@@ -104,6 +105,7 @@
     </ClInclude>
     <ClInclude Include="Particle.h" />
     <ClInclude Include="Rigidbody.h" />
+    <ClInclude Include="SaveDialog.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Engine">

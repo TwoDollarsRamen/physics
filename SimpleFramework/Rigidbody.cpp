@@ -4,11 +4,12 @@
 #include <imgui.h>
 
 #include "Rigidbody.h"
+#include "SaveDialog.h"
 
 #define max_rigidbodies 1024
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
-#define gravity -10.0f
-#define collision_iterations 8
+#define default_gravity -10.0f
+#define default_collision_iterations 8
 
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	assert(a && b);
@@ -127,10 +128,10 @@ void Rigidbody::add_force(glm::vec2 force) {
 
 void Rigidbody::update(float ts) {
 	position += velocity * ts;
-	add_force(glm::vec2(0.0f, gravity * mass * ts));
+	add_force(glm::vec2(0.0f, sim->gravity * mass * ts));
 }
 
-RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f) {
+RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f), gravity(default_gravity), collision_iterations(default_collision_iterations) {
 	detectors[Rigidbody::circle][Rigidbody::circle]   = circle_vs_circle;
 	detectors[Rigidbody::aabb]  [Rigidbody::aabb]     = aabb_vs_aabb;
 	detectors[Rigidbody::circle][Rigidbody::aabb]     = circle_vs_aabb;
@@ -152,6 +153,8 @@ RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f) {
 	right_side->position.x = 10.0f;
 	right_side->mass = 0.0f;
 	right_side->restitution = 0.0f;
+
+	GameBase::Zoom(0.5f);
 }
 
 RigidbodySim::~RigidbodySim() {
@@ -252,11 +255,46 @@ void RigidbodySim::Render() {
 		}
 	}
 
+	ImGui::Begin("Config");
+
+	ImGui::Text("Bodies: %d", rigidbody_count);
+	ImGui::Text("FPS: %g", 1.0 / et);
+
+	ImGui::InputInt("Collision Iterations", (int*)&collision_iterations);
+	if (ImGui::IsItemHovered()) {
+		ImGui::BeginTooltip();
+			ImGui::Text("Higher numbers make the simulation more stable, but also slower.");
+		ImGui::EndTooltip();
+	}
+
+	ImGui::DragFloat("Gravity", &gravity, 0.01f);
+
+	ImGui::End();
+
+	if (ImGui::BeginMainMenuBar()) {
+		if (ImGui::BeginMenu("File")) {
+			if (ImGui::MenuItem("Save")) {
+				char* path = save_dialog("C:\\");
+
+				if (path) {
+					if (path) { free(save_path); }
+					save_path = path;
+				}
+			}
+
+			ImGui::EndMenu();
+		}
+
+		ImGui::EndMainMenuBar();
+	}
+
 	GameBase::Clear();
 	GameBase::Render();
 }
 
 void RigidbodySim::OnMouseClick(int mouseButton) {
+	if (ImGui::IsAnyItemHovered() || ImGui::IsWindowHovered(ImGuiHoveredFlags_AnyWindow)) { return; }
+
 	if (mouseButton == GLFW_MOUSE_BUTTON_LEFT) {
 		auto rb = new_circle(1.0f);
 		rb->position = cursorPos;
@@ -275,6 +313,8 @@ Rigidbody* RigidbodySim::new_rigidbody() {
 	assert(rigidbody_count < max_rigidbodies && "Too many rigidbodies!");
 
 	auto rb = rigidbodies + rigidbody_count++;
+
+	rb->sim = this;
 
 	rb->restitution = 0.0f;
 	rb->mass = 1.0;

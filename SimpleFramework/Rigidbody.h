@@ -14,6 +14,8 @@ struct PlaneShape {
 	glm::vec2 normal;
 };
 
+class RigidbodySim;
+
 class Rigidbody {
 public:
 	enum {
@@ -33,6 +35,8 @@ public:
 	float stat_friction, kin_friction;
 
 	glm::vec3 color;
+
+	RigidbodySim* sim;
 
 	void add_force(glm::vec2 force);
 	void update(float ts);
@@ -56,8 +60,14 @@ private:
 	Rigidbody* new_rigidbody();
 
 	float accum;
+	float gravity;
+	size_t collision_iterations;
 
 	DetectorFunc detectors[3][3];
+
+	char* save_path = nullptr;
+
+	friend class Rigidbody;
 public:
 	RigidbodySim();
 	~RigidbodySim();
