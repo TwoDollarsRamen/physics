@@ -8,6 +8,7 @@
 #define max_rigidbodies 1024
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
 #define gravity -10.0f
+#define collision_iterations 8
 
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	assert(a && b);
@@ -138,7 +139,7 @@ RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f) {
 	rigidbodies = new Rigidbody[max_rigidbodies];
 
 	auto floor = new_aabb({ 20, 1 });
-	floor->position.y = -4.0f;
+	floor->position.y = -10.0f;
 	floor->mass = 0.0f;
 	floor->restitution = 0.0f;
 
@@ -168,56 +169,59 @@ void RigidbodySim::Update() {
 
 		std::vector<std::pair<Rigidbody*, Rigidbody*>> overlapping;
 
-		for (size_t i = 0; i < rigidbody_count; i++) {
-			auto a = rigidbodies + i;
-			for (size_t j = i + 1; j < rigidbody_count; j++) {
-				auto b = rigidbodies + j;
+		for (size_t c = 0; c < collision_iterations; c++) {
+			for (size_t i = 0; i < rigidbody_count; i++) {
+				auto a = rigidbodies + i;
+				for (size_t j = i + 1; j < rigidbody_count; j++) {
+					auto b = rigidbodies + j;
 
-				/* No point checking two static bodies. */
-				if (a->mass <= 0.0f && b->mass <= 0.0f) { continue; }
+					/* No point checking two static bodies. */
+					if (a->mass <= 0.0f && b->mass <= 0.0f) { continue; }
 
-				CollisionData cd = detectors[a->type][b->type](a, b);
-				if (cd.depth > 0.0f) {
-					glm::vec2 r_vel = b->velocity - a->velocity;
+					CollisionData cd = detectors[a->type][b->type](a, b);
+					if (cd.depth > 0.0f) {
+						glm::vec2 r_vel = b->velocity - a->velocity;
 
-					float a_inv_mass = a->mass <= 0.0f ? 0.0f : 1.0f / a->mass;
-					float b_inv_mass = b->mass <= 0.0f ? 0.0f : 1.0f / b->mass;
+						float a_inv_mass = a->mass <= 0.0f ? 0.0f : 1.0f / a->mass;
+						float b_inv_mass = b->mass <= 0.0f ? 0.0f : 1.0f / b->mass;
 
-					/* Positionally resolve the collision, to prevent sinking
-					 * when multiple objects are stacked on each other. */
-					glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
-					a->position -= a_inv_mass * correction;
-					b->position += b_inv_mass * correction;
+						/* Positionally resolve the collision, to prevent sinking
+						 * when multiple objects are stacked on each other. */
+						glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
+						a->position -= a_inv_mass * correction;
+						b->position += b_inv_mass * correction;
 
-					/* Resolve the collision */
-					float r = std::max(a->restitution, b->restitution);
-					float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
+						/* Resolve the collision */
+						float r = std::max(a->restitution, b->restitution);
+						float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
 
-					glm::vec2 force = cd.normal * j;
+						glm::vec2 force = cd.normal * j;
 
-					a->add_force(-force);
-					b->add_force(force);
+						a->add_force(-force);
+						b->add_force(force);
 
-					/* Calculate and apply a friction impulse. */
-					auto o_r_vel = r_vel;
-					r_vel = b->velocity - a->velocity;
+						/* Calculate and apply a friction impulse. */
+						auto o_r_vel = r_vel;
+						r_vel = b->velocity - a->velocity;
 
-					glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
-					float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
+						glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
+						float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
 
-					/* Average of both bodies' friction values. */
-					float stat_fric = (a->stat_friction + b->stat_friction) / 2;
+						/* Average of both bodies' friction values. */
+						float stat_fric = (a->stat_friction + b->stat_friction) / 2;
 
-					glm::vec2 fric_imp;
-					if (std::fabsf(t_j) < j * stat_fric) {
-						fric_imp = t_j * t;
-					} else {
-						float kin_fric = (a->kin_friction + b->kin_friction) / 2;
-						fric_imp = -j * t * kin_fric;
+						glm::vec2 fric_imp;
+						if (std::fabsf(t_j) < j * stat_fric) {
+							fric_imp = t_j * t;
+						}
+						else {
+							float kin_fric = (a->kin_friction + b->kin_friction) / 2;
+							fric_imp = -j * t * kin_fric;
+						}
+
+						a->add_force(-fric_imp);
+						b->add_force(fric_imp);
 					}
-
-					a->add_force(-fric_imp);
-					b->add_force(fric_imp);
 				}
 			}
 		}
