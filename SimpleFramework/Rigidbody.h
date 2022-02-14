@@ -37,7 +37,7 @@ public:
 };
 
 struct CollisionData {
-	glm::vec2 position, normal;
+	glm::vec2 normal;
 	float depth;
 
 	Rigidbody* a, * b;

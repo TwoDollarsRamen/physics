@@ -9,7 +9,7 @@
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
 #define gravity -10.0f
 
-static CollisionData circle_vs_circle(Rigidbody* a, Rigidbody* b) {
+static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	assert(a && b);
 
 	CollisionData result;
@@ -19,9 +19,8 @@ static CollisionData circle_vs_circle(Rigidbody* a, Rigidbody* b) {
 		result.depth = 0.0f;
 		return result;
 	}
-
-	result.position = a->position - b->position;
-	result.normal = glm::normalize(result.position);
+	
+	result.normal = glm::normalize(a->position - b->position);
 	
 	result.depth = fabs(glm::length(a->position - b->position) - (a->shape.circle.radius + b->shape.circle.radius));
 
@@ -31,7 +30,7 @@ static CollisionData circle_vs_circle(Rigidbody* a, Rigidbody* b) {
 	return result;
 }
 
-static CollisionData aabb_vs_aabb(Rigidbody* a, Rigidbody* b) {
+static CollisionData aabb_vs_aabb(Rigidbody* b, Rigidbody* a) {
 	assert(a && b);
 
 	glm::vec2 normal = a->position - b->position;
@@ -92,17 +91,23 @@ static CollisionData circle_vs_aabb(Rigidbody* a, Rigidbody* b) {
 
 	CollisionData result = {};
 
-	auto to_circle_clamped = -glm::abs(clamped_pos - a->position);
-	float dist = glm::length(to_circle_clamped);
+	auto circle_to_clamped = clamped_pos - a->position;
+	float dist = glm::length(circle_to_clamped);
 	result.depth = a->shape.circle.radius - dist;
-	result.normal = to_circle_clamped / dist;
-	result.position = to_circle_clamped;
+	result.normal = circle_to_clamped / dist;
+
+	result.a = a;
+	result.b = b;
 
 	return result;
 }
 
 static CollisionData aabb_vs_circle(Rigidbody* a, Rigidbody* b) {
-	return circle_vs_aabb(b, a);
+	auto cd = circle_vs_aabb(b, a);
+
+	cd.normal = -cd.normal;
+
+	return cd;
 }
 
 void Rigidbody::add_force(glm::vec2 force) {
@@ -118,9 +123,9 @@ void Rigidbody::update(float ts) {
 }
 
 RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f) {
-	detectors[Rigidbody::circle][Rigidbody::circle] = circle_vs_circle;
+	detectors[Rigidbody::circle][Rigidbody::circle]   = circle_vs_circle;
 	detectors[Rigidbody::aabb]  [Rigidbody::aabb]     = aabb_vs_aabb;
-	detectors[Rigidbody::circle][Rigidbody::aabb]   = circle_vs_aabb;
+	detectors[Rigidbody::circle][Rigidbody::aabb]     = circle_vs_aabb;
 	detectors[Rigidbody::aabb]  [Rigidbody::circle]   = aabb_vs_circle;
 
 	rigidbodies = new Rigidbody[max_rigidbodies];
@@ -154,6 +159,8 @@ void RigidbodySim::Update() {
 			rb->update(physics_timestep);
 		}
 
+		std::vector<std::pair<Rigidbody*, Rigidbody*>> overlapping;
+
 		for (size_t i = 0; i < rigidbody_count; i++) {
 			auto a = rigidbodies + i;
 			for (size_t j = i + 1; j < rigidbody_count; j++) {
@@ -168,9 +175,9 @@ void RigidbodySim::Update() {
 
 					/* Positionally resolve the collision, to prevent sinking
 					 * when multiple objects are stacked on each other. */
-					glm::vec2 correction = cd.normal * (cd.depth / (a_inv_mass + b_inv_mass));
-					a->position += a_inv_mass * correction;
-					b->position -= b_inv_mass * correction;
+					glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
+					a->position -= a_inv_mass * correction;
+					b->position += b_inv_mass * correction;
 
 					float r = std::max(a->restitution, b->restitution);
 					float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
