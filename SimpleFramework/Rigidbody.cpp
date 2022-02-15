@@ -12,20 +12,20 @@
 #define default_collision_iterations 8
 
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
-	assert(a && b);
-
 	CollisionData result;
 
-	if (glm::length(a->position - b->position)
-		> a->shape.circle.radius + b->shape.circle.radius) {
+	glm::vec2 b_to_a = a->position - b->position;
+	float b_to_a_l = glm::length(b_to_a);
+
+	if (b_to_a_l > a->shape.circle.radius + b->shape.circle.radius) {
 		result.depth = 0.0f;
 		return result;
 	}
 
-	result.position = a->position - b->position;
-	result.normal = glm::normalize(a->position - b->position);
-	
-	result.depth = fabs(glm::length(a->position - b->position) - (a->shape.circle.radius + b->shape.circle.radius));
+	result.normal = b_to_a / b_to_a_l;
+	result.depth = fabs(b_to_a_l - (a->shape.circle.radius + b->shape.circle.radius));
+
+	result.position = a->position - result.normal * (a->shape.circle.radius - (result.depth / 2.0f));
 
 	result.a = a;
 	result.b = b;
@@ -110,23 +110,23 @@ RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f), gravity(default_gravity)
 
 	rigidbodies = new Rigidbody[max_rigidbodies];
 
-	auto c1 = new_box({ 1.0f, 1.0f });
-	c1->position.x = 5.0f;
-	c1->position.y = 0.8f;
-	c1->velocity.x = -5.0f;
-	c1->ang_vel = 1.0f;
+	auto rb = new_box({ 10.0f, 1.0f });
+	rb->position.y = -10.0f;
+	rb->mass = 0.0f;
+	rb->restitution = 0.5f;
+	rb->constrain_rot = true;
 
-	auto c2 = new_circle(1.0f);
-	c2->position.x = -5.0f;
-	c2->position.y = -0.8f;
-	c2->velocity.x = 5.0f;
-	c2->ang_vel = 0.0f;
+	rb = new_box({ 1.0f, 10.0f });
+	rb->position.x = 10.0f;
+	rb->mass = 0.0f;
+	rb->restitution = 0.5f;
+	rb->constrain_rot = true;
 
-	auto floor = new_box({ 10.0f, 1.0f });
-	floor->position.y = -10.0f;
-	floor->mass = 0.0f;
-	floor->restitution = 0.5f;
-	floor->constrain_rot = true;
+	rb = new_box({ 1.0f, 10.0f });
+	rb->position.x = -10.0f;
+	rb->mass = 0.0f;
+	rb->restitution = 0.5f;
+	rb->constrain_rot = true;
 
 	GameBase::Zoom(0.5f);
 }
@@ -144,8 +144,6 @@ void RigidbodySim::Update() {
 			rb->update(physics_timestep);
 		}
 
-		std::vector<std::pair<Rigidbody*, Rigidbody*>> overlapping;
-
 		for (size_t c = 0; c < collision_iterations; c++) {
 			for (size_t i = 0; i < rigidbody_count; i++) {
 				auto a = rigidbodies + i;
@@ -159,23 +157,23 @@ void RigidbodySim::Update() {
 					if (cd.depth > 0.0f) {
 						glm::vec2 r_vel = b->velocity - a->velocity;
 
-						/* Positionally resolve the collision, to prevent sinking
-						 * when multiple objects are stacked on each other. */
 						float a_inv_mass = a->mass <= 0.0f ? 0.0f : 1.0f / a->mass;
 						float b_inv_mass = b->mass <= 0.0f ? 0.0f : 1.0f / b->mass;
 
+						/* Positionally resolve the collision, to prevent sinking
+						 * when multiple objects are stacked on each other. */
 						glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
 						a->position -= a_inv_mass * correction;
 						b->position += b_inv_mass * correction;
 
-						glm::vec2 perp = { cd.normal.y, -cd.normal.x };
-						float r1 = glm::dot(cd.position - a->position, perp);
-						float r2 = glm::dot(cd.position - b->position, perp);
+						glm::vec2 tangent = { cd.normal.y, -cd.normal.x };
+						float r1 = glm::dot(glm::normalize(cd.position - a->position), tangent);
+						float r2 = glm::dot(glm::normalize(cd.position - b->position), tangent);
 						float v1 = glm::dot(a->velocity, cd.normal) - r1 * a->ang_vel;
 						float v2 = glm::dot(b->velocity, cd.normal) + r2 * b->ang_vel;
 
 						if (v1 > v2) {
-							float r = std::max(a->restitution, b->restitution);
+							float r = (a->restitution + b->restitution) / 2.0f;
 
 							float mass_a = 1.0f / (a_inv_mass + (r1 * r1) / a->moment);
 							float mass_b = 1.0f / (b_inv_mass + (r2 * r2) / b->moment);
