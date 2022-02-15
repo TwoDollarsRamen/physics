@@ -188,13 +188,13 @@ void RigidbodySim::Update() {
 							auto o_r_vel = r_vel;
 							r_vel = b->velocity - a->velocity;
 							glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
-							float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
+							float t_j = (1.0f + r) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2);
 
 							/* Average of both bodies' friction values. */
 							float stat_fric = (a->stat_friction + b->stat_friction) / 2;
 
 							glm::vec2 fric_imp;
-							if (std::fabsf(t_j) < j * stat_fric) {
+							if (fabs(t_j) < j * stat_fric) {
 								fric_imp = t_j * t;
 							}
 							else {
@@ -202,8 +202,8 @@ void RigidbodySim::Update() {
 								fric_imp = -j * t * kin_fric;
 							}
 
-							a->add_force(-fric_imp, cd.position - a->position);
-							b->add_force(fric_imp, cd.position - b->position);
+							a->add_force(-fric_imp * t, cd.position - a->position);
+							b->add_force(fric_imp * t, cd.position - b->position);
 						}
 
 					}
