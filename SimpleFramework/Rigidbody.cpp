@@ -8,7 +8,7 @@
 
 #define max_rigidbodies 1024
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
-#define default_gravity 0.0f
+#define default_gravity -10.0f
 #define default_collision_iterations 8
 
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
@@ -157,40 +157,7 @@ void RigidbodySim::Update() {
 
 					CollisionData cd = detectors[a->type][b->type](a, b);
 					if (cd.depth > 0.0f) {
-						//glm::vec2 r_vel = b->velocity - a->velocity;
-
-
-						///* Resolve the collision */
-						//float r = std::max(a->restitution, b->restitution);
-						//float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
-
-						//glm::vec2 force = cd.normal * j;
-
-						//a->add_force(-force);
-						//b->add_force(force);
-
-						///* Calculate and apply a friction impulse. */
-						//auto o_r_vel = r_vel;
-						//r_vel = b->velocity - a->velocity;
-
-						//glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
-						//float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
-
-						///* Average of both bodies' friction values. */
-						//float stat_fric = (a->stat_friction + b->stat_friction) / 2;
-
-						//glm::vec2 fric_imp;
-						//if (std::fabsf(t_j) < j * stat_fric) {
-						//	fric_imp = t_j * t;
-						//}
-						//else {
-						//	float kin_fric = (a->kin_friction + b->kin_friction) / 2;
-						//	fric_imp = -j * t * kin_fric;
-						//}
-
-						//a->add_force(-fric_imp);
-						//b->add_force(fric_imp);
-
+						glm::vec2 r_vel = b->velocity - a->velocity;
 
 						/* Positionally resolve the collision, to prevent sinking
 						 * when multiple objects are stacked on each other. */
@@ -208,15 +175,39 @@ void RigidbodySim::Update() {
 						float v2 = glm::dot(b->velocity, cd.normal) + r2 * b->ang_vel;
 
 						if (v1 > v2) {
+							float r = std::max(a->restitution, b->restitution);
+
 							float mass_a = 1.0f / (a_inv_mass + (r1 * r1) / a->moment);
 							float mass_b = 1.0f / (b_inv_mass + (r2 * r2) / b->moment);
 
-							float e = std::max(a->restitution, b->restitution);
+							float j = (1.0f + r) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2);
 
-							glm::vec2 force = (1.0f + e) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2) * cd.normal;
+							glm::vec2 force = j * cd.normal;
 							a->add_force(-force, cd.position - a->position);
 							b->add_force(force, cd.position - b->position);
+
+							/* Calculate and apply a friction impulse. */
+							auto o_r_vel = r_vel;
+							r_vel = b->velocity - a->velocity;
+							glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
+							float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
+
+							/* Average of both bodies' friction values. */
+							float stat_fric = (a->stat_friction + b->stat_friction) / 2;
+
+							glm::vec2 fric_imp;
+							if (std::fabsf(t_j) < j * stat_fric) {
+								fric_imp = t_j * t;
+							}
+							else {
+								float kin_fric = (a->kin_friction + b->kin_friction) / 2;
+								fric_imp = -j * t * kin_fric;
+							}
+
+							a->add_force(-fric_imp, cd.position - a->position);
+							b->add_force(fric_imp, cd.position - b->position);
 						}
+
 					}
 				}
 			}
