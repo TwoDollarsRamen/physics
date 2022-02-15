@@ -8,7 +8,7 @@
 
 #define max_rigidbodies 1024
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
-#define default_gravity -10.0f
+#define default_gravity 0.0f
 #define default_collision_iterations 8
 
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
@@ -33,126 +33,100 @@ static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	return result;
 }
 
-static CollisionData aabb_vs_aabb(Rigidbody* b, Rigidbody* a) {
-	assert(a && b);
-
-	glm::vec2 normal = a->position - b->position;
-
-	CollisionData result = {};
-
-	result.position = a->position - b->position;
-
-	auto a_min = a->position - a->shape.aabb.size * 0.5f;
-	auto a_max = a->position + a->shape.aabb.size * 0.5f;
-	auto b_min = b->position - b->shape.aabb.size * 0.5f;
-	auto b_max = b->position + b->shape.aabb.size * 0.5f;
-
-	float a_ext = (a_max.x - a_min.x) / 2.0f;
-	float b_ext = (b_max.x - b_min.x) / 2.0f;
-
-	float x_overlap = a_ext + b_ext - fabs(normal.x);
-
-	if (x_overlap > 0.0f) {
-		a_ext = (a_max.y - a_min.y) / 2.0f;
-		b_ext = (b_max.y - b_min.y) / 2.0f;
-
-		float y_overlap = a_ext + b_ext - fabs(normal.y);
-
-		if (y_overlap > 0.0f) {
-			if (x_overlap < y_overlap) {
-				if (normal.x < 0.0f) {
-					result.normal = glm::vec2(-1.0f, 0.0f);
-				} else {	
-					result.normal = glm::vec2(1.0f, 0.0f);
-				}
-				result.depth = x_overlap;
-			} else {
-				if (normal.y < 0.0f) {
-					result.normal = glm::vec2(0.0f, -1.0f);
-				} else {
-					result.normal = glm::vec2(0.0f, 1.0f);
-				}
-				result.depth = y_overlap;
-			}
-		}
-	}
-
-	result.a = a;
-	result.b = b;
-
-	return result;
+static CollisionData box_vs_box(Rigidbody* b, Rigidbody* a) {
+	return {};
 }
 
-static CollisionData circle_vs_aabb(Rigidbody* a, Rigidbody* b) {
-	glm::vec2 clamped_pos = a->position;
+static CollisionData box_vs_circle(Rigidbody* b, Rigidbody* c) {
+	CollisionData r = {};
 
-	/* This becomes fucked if the circle is more than just 
-	 * a little bit inside the AABB. */
+	glm::vec2 circle_w = c->position - b->position;
+	glm::vec2 circle_to_box = glm::vec2(
+		glm::dot(circle_w, glm::vec2(b->shape.box.local.x, b->shape.box.local.y)),
+		glm::dot(circle_w, glm::vec2(b->shape.box.local.z, b->shape.box.local.w)));
 
-	auto b_min = b->position - b->shape.aabb.size * 0.5f;
-	auto b_max = b->position + b->shape.aabb.size * 0.5f;
-	
-	if (clamped_pos.x < b_min.x) { clamped_pos.x = b_min.x; }
-	if (clamped_pos.y < b_min.y) { clamped_pos.y = b_min.y; }
-	if (clamped_pos.x > b_max.x) { clamped_pos.x = b_max.x; }
-	if (clamped_pos.y > b_max.y) { clamped_pos.y = b_max.y; }
+	glm::vec2 clamped_pos = circle_to_box;
+	glm::vec2 extents = b->shape.box.extents;
+	if (clamped_pos.x < -extents.x) { clamped_pos.x = -extents.x; }
+	if (clamped_pos.x >  extents.x) { clamped_pos.x =  extents.x; }
+	if (clamped_pos.y < -extents.y) { clamped_pos.y = -extents.y; }
+	if (clamped_pos.y >  extents.y) { clamped_pos.y =  extents.y; }
 
-	CollisionData result = {};
+	glm::vec2 clamped_pos_w = b->position +
+		clamped_pos.x * glm::vec2(b->shape.box.local.x, b->shape.box.local.y) +
+		clamped_pos.y * glm::vec2(b->shape.box.local.z, b->shape.box.local.w);
+	glm::vec2 c_to_b = c->position - clamped_pos_w;
 
-	auto circle_to_clamped = clamped_pos - a->position;
-	float dist = glm::length(circle_to_clamped);
-	result.depth = a->shape.circle.radius - dist;
-	result.normal = circle_to_clamped / dist;
-	result.position = circle_to_clamped;
+	r.depth = c->shape.circle.radius - glm::length(c_to_b);
+	r.normal = glm::normalize(c_to_b);
+	r.position = clamped_pos_w;
 
-	result.a = a;
-	result.b = b;
-
-	return result;
+	return r;
 }
 
-static CollisionData aabb_vs_circle(Rigidbody* a, Rigidbody* b) {
-	auto cd = circle_vs_aabb(b, a);
+static CollisionData circle_vs_box(Rigidbody* a, Rigidbody* b) {
+	auto cd = box_vs_circle(b, a);
 
 	cd.normal = -cd.normal;
 
 	return cd;
 }
 
-void Rigidbody::add_force(glm::vec2 force) {
+void Rigidbody::add_force(glm::vec2 force, glm::vec2 pos) {
 	if (mass <= 0.0f) { return; }
 
 	auto accel = force / mass;
 	velocity += accel;
+
+	ang_vel += (force.y * pos.x - force.x * pos.y) / moment;
 }
 
 void Rigidbody::update(float ts) {
 	position += velocity * ts;
 	add_force(glm::vec2(0.0f, sim->gravity * mass * ts));
+
+	rotation += ang_vel * ts;
+
+	if (constrain_rot) {
+		rotation = 0.0f;
+		ang_vel = 0.0f;
+	}
+
+	if (type == Rigidbody::box) {
+		float cs = std::cosf(rotation);
+		float sn = std::sinf(rotation);
+		shape.box.local = {
+			glm::normalize(glm::vec2(cs, sn)),
+			glm::normalize(glm::vec2(-sn, cs))
+		};
+	}
 }
 
 RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f), gravity(default_gravity), collision_iterations(default_collision_iterations) {
-	detectors[Rigidbody::circle][Rigidbody::circle]   = circle_vs_circle;
-	detectors[Rigidbody::aabb]  [Rigidbody::aabb]     = aabb_vs_aabb;
-	detectors[Rigidbody::circle][Rigidbody::aabb]     = circle_vs_aabb;
-	detectors[Rigidbody::aabb]  [Rigidbody::circle]   = aabb_vs_circle;
+	detectors[Rigidbody::circle][Rigidbody::circle]  = circle_vs_circle;
+	detectors[Rigidbody::box]  [Rigidbody::box]      = box_vs_box;
+	detectors[Rigidbody::circle][Rigidbody::box]     = circle_vs_box;
+	detectors[Rigidbody::box]  [Rigidbody::circle]   = box_vs_circle;
 
 	rigidbodies = new Rigidbody[max_rigidbodies];
 
-	auto floor = new_aabb({ 20, 1 });
+	auto floor = new_box({ 10.0f, 1.0f });
 	floor->position.y = -10.0f;
 	floor->mass = 0.0f;
 	floor->restitution = 0.0f;
+	floor->constrain_rot = true;
 
-	auto left_side = new_aabb({1, 20});
-	left_side->position.x = -10.0f;
-	left_side->mass = 0.0f;
-	left_side->restitution = 0.0f;
+	auto c1 = new_box({ 1.0f, 1.0f });
+	c1->position.x = 5.0f;
+	c1->position.y = 0.8f;
+	c1->velocity.x = -5.0f;
+	c1->ang_vel = 1.0f;
 
-	auto right_side= new_aabb({ 1, 20 });
-	right_side->position.x = 10.0f;
-	right_side->mass = 0.0f;
-	right_side->restitution = 0.0f;
+	auto c2 = new_circle(1.0f);
+	c2->position.x = -5.0f;
+	c2->position.y = -0.8f;
+	c2->velocity.x = 5.0f;
+	c2->ang_vel = 0.0f;
 
 	GameBase::Zoom(0.5f);
 }
@@ -183,47 +157,66 @@ void RigidbodySim::Update() {
 
 					CollisionData cd = detectors[a->type][b->type](a, b);
 					if (cd.depth > 0.0f) {
-						glm::vec2 r_vel = b->velocity - a->velocity;
+						//glm::vec2 r_vel = b->velocity - a->velocity;
 
-						float a_inv_mass = a->mass <= 0.0f ? 0.0f : 1.0f / a->mass;
-						float b_inv_mass = b->mass <= 0.0f ? 0.0f : 1.0f / b->mass;
+
+						///* Resolve the collision */
+						//float r = std::max(a->restitution, b->restitution);
+						//float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
+
+						//glm::vec2 force = cd.normal * j;
+
+						//a->add_force(-force);
+						//b->add_force(force);
+
+						///* Calculate and apply a friction impulse. */
+						//auto o_r_vel = r_vel;
+						//r_vel = b->velocity - a->velocity;
+
+						//glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
+						//float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
+
+						///* Average of both bodies' friction values. */
+						//float stat_fric = (a->stat_friction + b->stat_friction) / 2;
+
+						//glm::vec2 fric_imp;
+						//if (std::fabsf(t_j) < j * stat_fric) {
+						//	fric_imp = t_j * t;
+						//}
+						//else {
+						//	float kin_fric = (a->kin_friction + b->kin_friction) / 2;
+						//	fric_imp = -j * t * kin_fric;
+						//}
+
+						//a->add_force(-fric_imp);
+						//b->add_force(fric_imp);
+
 
 						/* Positionally resolve the collision, to prevent sinking
 						 * when multiple objects are stacked on each other. */
+						float a_inv_mass = a->mass <= 0.0f ? 0.0f : 1.0f / a->mass;
+						float b_inv_mass = b->mass <= 0.0f ? 0.0f : 1.0f / b->mass;
+
 						glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
 						a->position -= a_inv_mass * correction;
 						b->position += b_inv_mass * correction;
 
-						/* Resolve the collision */
-						float r = std::max(a->restitution, b->restitution);
-						float j = glm::dot(-(1 + r) * (r_vel), cd.normal) / (a_inv_mass + b_inv_mass);
+						glm::vec2 perp = { cd.normal.y, -cd.normal.x };
+						float r1 = glm::dot(cd.position - a->position, perp);
+						float r2 = glm::dot(cd.position - b->position, perp);
+						float v1 = glm::dot(a->velocity, cd.normal) - r1 * a->ang_vel;
+						float v2 = glm::dot(b->velocity, cd.normal) + r2 * b->ang_vel;
 
-						glm::vec2 force = cd.normal * j;
+						if (v1 > v2) {
+							float mass_a = 1.0f / (1.0f / a->mass + (r1 * r1) / a->moment);
+							float mass_b = 1.0f / (1.0f / b->mass + (r2 * r2) / b->moment);
 
-						a->add_force(-force);
-						b->add_force(force);
+							float e = std::max(a->restitution, b->restitution);
 
-						/* Calculate and apply a friction impulse. */
-						auto o_r_vel = r_vel;
-						r_vel = b->velocity - a->velocity;
-
-						glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
-						float t_j = glm::dot(-(1 + r) * (r_vel), t) / (a_inv_mass + b_inv_mass);
-
-						/* Average of both bodies' friction values. */
-						float stat_fric = (a->stat_friction + b->stat_friction) / 2;
-
-						glm::vec2 fric_imp;
-						if (std::fabsf(t_j) < j * stat_fric) {
-							fric_imp = t_j * t;
+							glm::vec2 force = (1.0f + e) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2) * cd.normal;
+							a->add_force(-force, cd.position - a->position);
+							b->add_force(force, cd.position - b->position);
 						}
-						else {
-							float kin_fric = (a->kin_friction + b->kin_friction) / 2;
-							fric_imp = -j * t * kin_fric;
-						}
-
-						a->add_force(-fric_imp);
-						b->add_force(fric_imp);
 					}
 				}
 			}
@@ -242,15 +235,18 @@ void RigidbodySim::Render() {
 		switch (rb->type) {
 			case Rigidbody::circle:
 				lines.DrawCircle(rb->position, rb->shape.circle.radius, rb->color);
+				lines.DrawLineSegment(rb->position,
+					rb->position + glm::vec2(std::cosf(rb->rotation), std::sinf(rb->rotation) * rb->shape.circle.radius));
 				break;
-			case Rigidbody::aabb: {
-				auto min = rb->position - rb->shape.aabb.size * 0.5f;
-				auto max = rb->position + rb->shape.aabb.size * 0.5f;
-
-				lines.DrawLineSegment({ min.x, min.y }, { min.x, max.y }, rb->color);
-				lines.DrawLineSegment({ min.x, max.y }, { max.x, max.y }, rb->color);
-				lines.DrawLineSegment({ max.x, max.y }, { max.x, min.y }, rb->color);
-				lines.DrawLineSegment({ max.x, min.y }, { min.x, min.y }, rb->color);
+			case Rigidbody::box: {
+				glm::vec2 p1 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+				glm::vec2 p2 = rb->position + glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+				glm::vec2 p3 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x + glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+				glm::vec2 p4 = rb->position + glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x + glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+				lines.DrawLineSegment(p1, p2);
+				lines.DrawLineSegment(p2, p4);
+				lines.DrawLineSegment(p3, p4);
+				lines.DrawLineSegment(p3, p1);
 			} break;
 		}
 	}
@@ -300,7 +296,7 @@ void RigidbodySim::OnMouseClick(int mouseButton) {
 		rb->position = cursorPos;
 		rb->restitution = 1.0f;
 	} else if (mouseButton == GLFW_MOUSE_BUTTON_RIGHT) {
-		auto rb = new_aabb({ 1.0f, 1.0f });
+		auto rb = new_box({ 1.0f, 1.0f });
 		rb->position = cursorPos;
 		rb->restitution = 1.0f;
 	}
@@ -316,10 +312,13 @@ Rigidbody* RigidbodySim::new_rigidbody() {
 
 	rb->sim = this;
 
-	rb->restitution = 0.0f;
+	rb->restitution = 0.5f;
 	rb->mass = 1.0;
 	rb->stat_friction = 0.1f;
 	rb->kin_friction = 0.1f;
+
+	rb->rotation = 0.0f;
+	rb->ang_vel = 0.0f;
 
 	rb->color = { 1.0f, 1.0f, 1.0f };
 
@@ -335,14 +334,18 @@ Rigidbody* RigidbodySim::new_circle(float radius) {
 	rb->type = Rigidbody::circle;
 	rb->shape.circle.radius = radius;
 
+	rb->moment = 0.5f * rb->mass * radius * radius;
+
 	return rb;
 }
 
-Rigidbody* RigidbodySim::new_aabb(glm::vec2 size) {
+Rigidbody* RigidbodySim::new_box(glm::vec2 extents) {
 	auto rb = new_rigidbody();
 
-	rb->type = Rigidbody::aabb;
-	rb->shape.aabb.size = size;
+	rb->type = Rigidbody::box;
+	rb->shape.box.extents = extents;
+
+	rb->moment = 1.0f / 12.0f * rb->mass * (extents.x * 2) * (extents.y * 2);
 
 	return rb;
 }

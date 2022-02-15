@@ -6,8 +6,9 @@ struct CircleShape {
 	float radius;
 };
 
-struct AABBShape {
-	glm::vec2 size;
+struct BoxShape {
+	glm::vec4 local;
+	glm::vec2 extents;
 };
 
 struct PlaneShape {
@@ -20,25 +21,28 @@ class Rigidbody {
 public:
 	enum {
 		circle,
-		aabb,
-		plane
+		box
 	} type;
 
 	union {
 		CircleShape circle;
-		AABBShape aabb;
+		BoxShape box;
 	} shape;
 
 	glm::vec2 position, velocity;
 	float mass, restitution;
 
+	float rotation, ang_vel, moment;
+
 	float stat_friction, kin_friction;
+
+	bool constrain_rot = false;
 
 	glm::vec3 color;
 
 	RigidbodySim* sim;
 
-	void add_force(glm::vec2 force);
+	void add_force(glm::vec2 force, glm::vec2 pos = { 0.0f, 0.0f });
 	void update(float ts);
 };
 
@@ -80,5 +84,5 @@ public:
 	void OnMouseRelease(int mouseButton);
 
 	Rigidbody* new_circle(float radius);
-	Rigidbody* new_aabb(glm::vec2 size);
+	Rigidbody* new_box(glm::vec2 size);
 };
