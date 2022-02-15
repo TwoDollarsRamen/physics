@@ -1,8 +1,13 @@
+#include <windows.h>
+
 #include "GameBase.h"
 #include "GLFWCallbacks.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
+
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <glfw3native.h>
 
 double now, last;
 
@@ -174,4 +179,49 @@ void GameBase::OnMouseRelease(int mouseButton)
 void GameBase::Zoom(float zoomFactor)
 {
 	cameraHeight /= zoomFactor;
+}
+
+std::string GameBase::save_dialog(const char* filter) {
+	OPENFILENAMEA ofn;
+	CHAR szFile[260] = { 0 };
+	CHAR currentDir[256] = { 0 };
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = glfwGetWin32Window(window);
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile);
+	if (GetCurrentDirectoryA(256, currentDir))
+		ofn.lpstrInitialDir = currentDir;
+	ofn.lpstrFilter = filter;
+	ofn.nFilterIndex = 1;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+
+	// Sets the default extension by extracting it from the filter
+	ofn.lpstrDefExt = strchr(filter, '\0') + 1;
+
+	if (GetSaveFileNameA(&ofn) == TRUE)
+		return ofn.lpstrFile;
+
+	return std::string();
+}
+
+std::string GameBase::open_dialog(const char* filter) {
+	OPENFILENAMEA ofn;
+	CHAR szFile[260] = { 0 };
+	CHAR currentDir[256] = { 0 };
+	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ofn.lStructSize = sizeof(OPENFILENAME);
+	ofn.hwndOwner = glfwGetWin32Window(window);
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeof(szFile);
+	if (GetCurrentDirectoryA(256, currentDir))
+		ofn.lpstrInitialDir = currentDir;
+	ofn.lpstrFilter = filter;
+	ofn.nFilterIndex = 1;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+
+	if (GetOpenFileNameA(&ofn) == TRUE)
+		return ofn.lpstrFile;
+
+	return std::string();
 }

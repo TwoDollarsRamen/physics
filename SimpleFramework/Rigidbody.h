@@ -19,7 +19,7 @@ class RigidbodySim;
 
 class Rigidbody {
 public:
-	enum {
+	enum Type {
 		circle,
 		box
 	} type;
@@ -69,7 +69,7 @@ private:
 
 	DetectorFunc detectors[3][3];
 
-	char* save_path = nullptr;
+	std::string cur_save_path;
 
 	friend class Rigidbody;
 public:
@@ -85,4 +85,7 @@ public:
 
 	Rigidbody* new_circle(float radius);
 	Rigidbody* new_box(glm::vec2 size);
+
+	void save_state();
+	void load_state();
 };

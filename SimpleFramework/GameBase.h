@@ -52,4 +52,7 @@ public:
 	virtual void OnMouseRelease(int mouseButton);
 
 	void Zoom(float zoomFactor);
+
+	std::string save_dialog(const char* filter);
+	std::string open_dialog(const char* filter);
 };
