@@ -1,10 +1,11 @@
 #include <stdlib.h>
 #include <time.h>
 
+#include <cmath>
+
 #include <imgui.h>
 
 #include "Rigidbody.h"
-#include "SaveDialog.h"
 
 #define max_rigidbodies 1024
 #define physics_timestep 1.0f / 60.0f /* 60 FPS */
@@ -93,8 +94,8 @@ void Rigidbody::update(float ts) {
 	}
 
 	if (type == Rigidbody::box) {
-		float cs = std::cosf(rotation);
-		float sn = std::sinf(rotation);
+		float cs = cosf(rotation);
+		float sn = sinf(rotation);
 		shape.box.local = {
 			glm::normalize(glm::vec2(cs, sn)),
 			glm::normalize(glm::vec2(-sn, cs))
@@ -109,6 +110,7 @@ RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f), gravity(default_gravity)
 	detectors[Rigidbody::box]  [Rigidbody::circle]   = box_vs_circle;
 
 	rigidbodies = new Rigidbody[max_rigidbodies];
+	rigidbody_count = 0;
 
 	auto rb = new_box({ 10.0f, 1.0f });
 	rb->position.y = -10.0f;
@@ -225,7 +227,7 @@ void RigidbodySim::Render() {
 			case Rigidbody::circle:
 				lines.DrawCircle(rb->position, rb->shape.circle.radius, rb->color);
 				lines.DrawLineSegment(rb->position,
-					rb->position + glm::vec2(std::cosf(rb->rotation), std::sinf(rb->rotation) * rb->shape.circle.radius));
+					rb->position + glm::vec2(cosf(rb->rotation), sinf(rb->rotation) * rb->shape.circle.radius));
 				break;
 			case Rigidbody::box: {
 				glm::vec2 p1 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;

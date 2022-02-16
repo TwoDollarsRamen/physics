@@ -1,13 +1,15 @@
+#ifdef _WIN32
 #include <windows.h>
+
+#define GLFW_EXPOSE_NATIVE_WIN32
+#include <glfw3native.h>
+#endif
 
 #include "GameBase.h"
 #include "GLFWCallbacks.h"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <glfw3native.h>
 
 double now, last;
 
@@ -182,6 +184,7 @@ void GameBase::Zoom(float zoomFactor)
 }
 
 std::string GameBase::save_dialog(const char* filter) {
+#ifdef _WIN32
 	OPENFILENAMEA ofn;
 	CHAR szFile[260] = { 0 };
 	CHAR currentDir[256] = { 0 };
@@ -201,11 +204,13 @@ std::string GameBase::save_dialog(const char* filter) {
 
 	if (GetSaveFileNameA(&ofn) == TRUE)
 		return ofn.lpstrFile;
+#endif
 
 	return std::string();
 }
 
 std::string GameBase::open_dialog(const char* filter) {
+#ifdef _WIN32
 	OPENFILENAMEA ofn;
 	CHAR szFile[260] = { 0 };
 	CHAR currentDir[256] = { 0 };
@@ -222,6 +227,7 @@ std::string GameBase::open_dialog(const char* filter) {
 
 	if (GetOpenFileNameA(&ofn) == TRUE)
 		return ofn.lpstrFile;
+#endif
 
 	return std::string();
 }
