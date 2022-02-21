@@ -21,12 +21,14 @@ class Rigidbody {
 public:
 	enum Type {
 		circle,
-		box
+		box,
+		plane
 	} type;
 
 	union {
 		CircleShape circle;
 		BoxShape box;
+		PlaneShape plane;
 	} shape;
 
 	glm::vec2 position, velocity;
@@ -85,6 +87,7 @@ public:
 
 	Rigidbody* new_circle(float radius);
 	Rigidbody* new_box(glm::vec2 size);
+	Rigidbody* new_plane(glm::vec2 normal);
 
 	void save_state();
 	void load_state();
