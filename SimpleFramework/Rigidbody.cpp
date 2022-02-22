@@ -12,6 +12,8 @@
 #define default_gravity -10.0f
 #define default_collision_iterations 8
 
+#define TEST_MODE
+
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	CollisionData result;
 
@@ -34,6 +36,8 @@ static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	return result;
 }
 
+LineRenderer* g_lines;
+
 static bool check_box_corners(Rigidbody* a, Rigidbody* b, glm::vec2& position, int& contacts, float& depth, glm::vec2& normal) {
 	glm::vec2 min(INFINITY, INFINITY), max(-INFINITY, -INFINITY);
 
@@ -45,8 +49,10 @@ static bool check_box_corners(Rigidbody* a, Rigidbody* b, glm::vec2& position, i
 		for (float y = -b->shape.box.extents.y; y < box_size.y; y += box_size.y) {
 			glm::vec2 world_pos = b->position + x * glm::vec2(a->shape.box.local.x, a->shape.box.local.y)
 				+ y * glm::vec2(a->shape.box.local.z, a->shape.box.local.w);
-			glm::vec2 box_pos(glm::dot(world_pos - a->position, glm::vec2(a->shape.box.local.x, a->shape.box.local.y)),
-				glm::dot(world_pos - a->position, glm::vec2(a->shape.box.local.z, a->shape.box.local.w)));
+			glm::vec2 box_pos(glm::dot(world_pos - a->position, glm::vec2(b->shape.box.local.x, b->shape.box.local.y)),
+				glm::dot(world_pos - a->position, glm::vec2(b->shape.box.local.z, b->shape.box.local.w)));
+
+			g_lines->DrawCircle(world_pos, 0.1f);
 
 			if (box_pos.x < min.x) { min.x = box_pos.x; }
 			if (box_pos.y < min.y) { min.y = box_pos.y; }
@@ -75,28 +81,28 @@ static bool check_box_corners(Rigidbody* a, Rigidbody* b, glm::vec2& position, i
 
 	float pen = a->shape.box.extents.x - min.x;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
-		normal = glm::vec2(a->shape.box.local.x, a->shape.box.local.y);
+		normal = glm::vec2(b->shape.box.local.x, b->shape.box.local.y);
 		r = true;
 		depth = pen;
 	}
 
 	pen = max.x + a->shape.box.extents.x;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
-		normal = -glm::vec2(a->shape.box.local.x, a->shape.box.local.y);
+		normal = -glm::vec2(b->shape.box.local.x, b->shape.box.local.y);
 		r = true;
 		depth = pen;
 	}
 
 	pen = a->shape.box.extents.y - min.y;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
-		normal = glm::vec2(a->shape.box.local.z, a->shape.box.local.w);
+		normal = glm::vec2(b->shape.box.local.z, b->shape.box.local.w);
 		r = true;
 		depth = pen;
 	}
 
 	pen = max.y + a->shape.box.extents.y;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
-		normal = -glm::vec2(a->shape.box.local.z, a->shape.box.local.w);
+		normal = -glm::vec2(b->shape.box.local.z, b->shape.box.local.w);
 		r = true;
 		depth = pen;
 	}
@@ -105,21 +111,16 @@ static bool check_box_corners(Rigidbody* a, Rigidbody* b, glm::vec2& position, i
 }
 
 static CollisionData box_vs_box(Rigidbody* a, Rigidbody* b) {
-	glm::vec2 normal(0, 0);
-	glm::vec2 position(0, 0);
+	CollisionData r = {};
 
-	float depth = 0.0f;
 	int contact_count = 0;
 
-	check_box_corners(a, b, position, contact_count, depth, normal);
-	if (check_box_corners(b, a, position, contact_count, depth, normal)) {
-		normal = -normal;
+	check_box_corners(a, b, r.position, contact_count, r.depth, r.normal);
+	if (check_box_corners(b, a, r.position, contact_count, r.depth, r.normal)) {
+		r.normal = -r.normal;
 	}
 
-	CollisionData r = {};
-	r.normal = normal;
-	r.depth = depth;
-	r.position = position / (float)contact_count;
+	r.position /= (float)contact_count;
 
 	r.a = a;
 	r.b = b;
@@ -237,6 +238,7 @@ void Rigidbody::add_force(glm::vec2 force, glm::vec2 pos) {
 }
 
 void Rigidbody::update(float ts) {
+#ifndef TEST_MODE
 	position += velocity * ts;
 	add_force(glm::vec2(0.0f, sim->gravity * mass * ts));
 
@@ -246,14 +248,15 @@ void Rigidbody::update(float ts) {
 		rotation = 0.0f;
 		ang_vel = 0.0f;
 	}
+#endif
 
 	if (type == Rigidbody::box) {
 		float cs = cosf(rotation);
 		float sn = sinf(rotation);
-		shape.box.local = {
+		shape.box.local = glm::vec4(
 			glm::normalize(glm::vec2(cs, sn)),
 			glm::normalize(glm::vec2(-sn, cs))
-		};
+		);
 	}
 }
 
@@ -270,7 +273,10 @@ RigidbodySim::RigidbodySim() : GameBase(), accum(0.0f), gravity(default_gravity)
 	rigidbodies = new Rigidbody[max_rigidbodies];
 	rigidbody_count = 0;
 
-	auto rb = new_plane({ 0.1f, 1.0f });
+
+	g_lines = &lines;
+
+	auto rb = new_plane({ 0.0f, 1.0f });
 	rb->position.y = -10.0f;
 	rb->mass = 0.0f;
 	rb->restitution = 0.5f;
@@ -283,6 +289,7 @@ RigidbodySim::~RigidbodySim() {
 }
 
 void RigidbodySim::Update() {
+#ifndef TEST_MODE
 	accum += deltaTime;
 
 	while (accum >= physics_timestep) {
@@ -314,9 +321,9 @@ void RigidbodySim::Update() {
 
 						/* Positionally resolve the collision, to prevent sinking
 						 * when multiple objects are stacked on each other. */
-						glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
-						a->position -= a_inv_mass * correction;
-						b->position += b_inv_mass * correction;
+						 //glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
+						 //a->position -= a_inv_mass * correction;
+						 //b->position += b_inv_mass * correction;
 
 						glm::vec2 tangent = { cd.normal.y, -cd.normal.x };
 						float r1 = glm::dot(glm::normalize(cd.position - a->position), tangent);
@@ -366,41 +373,80 @@ void RigidbodySim::Update() {
 		accum -= physics_timestep;
 	}
 
+#endif
+
 	GameBase::Update();
 }
 
+
+void RigidbodySim::DrawRb(Rigidbody* rb) {
+	switch (rb->type) {
+		case Rigidbody::circle:
+			lines.DrawCircle(rb->position, rb->shape.circle.radius, rb->color);
+			lines.DrawLineSegment(rb->position,
+				rb->position + glm::vec2(cosf(rb->rotation), sinf(rb->rotation) * rb->shape.circle.radius));
+			break;
+		case Rigidbody::box: {
+			glm::vec2 p1 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+			glm::vec2 p2 = rb->position + glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+			glm::vec2 p3 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x + glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+			glm::vec2 p4 = rb->position + glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x + glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
+			lines.DrawLineSegment(p1, p2, rb->color);
+			lines.DrawLineSegment(p2, p4, rb->color);
+			lines.DrawLineSegment(p3, p4, rb->color);
+			lines.DrawLineSegment(p3, p1, rb->color);
+		} break;
+		case Rigidbody::plane: {
+			auto& plane = rb->shape.plane;
+
+			float segment = 1000.0f;
+			glm::vec2 centre_point = plane.normal * rb->position.x;
+			glm::vec2 tangent(plane.normal.y, -plane.normal.x);
+			glm::vec2 start = centre_point + (tangent * segment);
+			glm::vec2 end = centre_point - (tangent * segment);
+
+			lines.DrawLineSegment(start, end, rb->color);
+		} break;
+	}
+}
+
 void RigidbodySim::Render() {
+#ifdef TEST_MODE
+	Rigidbody a = {};
+	a.type = Rigidbody::box;
+	a.position = cursorPos;
+	a.shape.box.extents = { 1.0f, 1.0f };
+
+	a.rotation = 1.0f;
+
+	Rigidbody b = {};
+	b.type = Rigidbody::box;
+	b.shape.box.extents = { 1.0f, 1.0f };
+
+	a.update(deltaTime);
+	b.update(deltaTime);
+
+	auto cd = detectors[Rigidbody::box][Rigidbody::box](&a, &b);
+
+	a.color = { 1.0f, 1.0f, 1.0f };
+	b.color = { 1.0f, 1.0f, 1.0f };
+
+	if (cd.depth > 0.0f) {
+		a.color = { 1.0f, 0.0f, 0.0f };
+		b.color = { 1.0f, 0.0f, 0.0f };
+	}
+
+	DrawRb(&a);
+	DrawRb(&b);
+
+	lines.DrawLineSegment(cd.position, cd.position + cd.normal * -cd.depth);
+	lines.DrawCircle(cd.position, 0.1f);
+#endif
+
 	for (size_t i = 0; i < rigidbody_count; i++) {
 		auto rb = rigidbodies + i;
 
-		switch (rb->type) {
-			case Rigidbody::circle:
-				lines.DrawCircle(rb->position, rb->shape.circle.radius, rb->color);
-				lines.DrawLineSegment(rb->position,
-					rb->position + glm::vec2(cosf(rb->rotation), sinf(rb->rotation) * rb->shape.circle.radius));
-				break;
-			case Rigidbody::box: {
-				glm::vec2 p1 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
-				glm::vec2 p2 = rb->position + glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x - glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
-				glm::vec2 p3 = rb->position - glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x + glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
-				glm::vec2 p4 = rb->position + glm::vec2(rb->shape.box.local.x, rb->shape.box.local.y) * rb->shape.box.extents.x + glm::vec2(rb->shape.box.local.z, rb->shape.box.local.w) * rb->shape.box.extents.y;
-				lines.DrawLineSegment(p1, p2, rb->color);
-				lines.DrawLineSegment(p2, p4, rb->color);
-				lines.DrawLineSegment(p3, p4, rb->color);
-				lines.DrawLineSegment(p3, p1, rb->color);
-			} break;
-			case Rigidbody::plane: {
-				auto& plane = rb->shape.plane;
-
-				float segment = 1000.0f;
-				glm::vec2 centre_point = plane.normal * rb->position.x;
-				glm::vec2 tangent(plane.normal.y, -plane.normal.x);
-				glm::vec2 start = centre_point + (tangent * segment);
-				glm::vec2 end   = centre_point - (tangent * segment);
-
-				lines.DrawLineSegment(start, end, rb->color);
-			} break;
-		}
+		DrawRb(rb);
 	}
 
 	ImGui::Begin("Config");

@@ -78,6 +78,8 @@ public:
 	RigidbodySim();
 	~RigidbodySim();
 
+	void DrawRb(Rigidbody* rb);
+
 	void Update();
 
 	void Render();
