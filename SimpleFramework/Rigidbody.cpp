@@ -12,7 +12,7 @@
 #define default_gravity -10.0f
 #define default_collision_iterations 8
 
-#define TEST_MODE
+//#define TEST_MODE
 
 static CollisionData circle_vs_circle(Rigidbody* b, Rigidbody* a) {
 	CollisionData result;
@@ -52,7 +52,9 @@ static bool check_box_corners(Rigidbody* a, Rigidbody* b, glm::vec2& position, i
 			glm::vec2 box_pos(glm::dot(world_pos - a->position, glm::vec2(b->shape.box.local.x, b->shape.box.local.y)),
 				glm::dot(world_pos - a->position, glm::vec2(b->shape.box.local.z, b->shape.box.local.w)));
 
-			g_lines->DrawCircle(world_pos, 0.1f);
+#ifdef TEST_MODE
+			g_lines->DrawCircle(box_pos, 0.1f, 10);
+#endif
 
 			if (box_pos.x < min.x) { min.x = box_pos.x; }
 			if (box_pos.y < min.y) { min.y = box_pos.y; }
@@ -79,28 +81,28 @@ static bool check_box_corners(Rigidbody* a, Rigidbody* b, glm::vec2& position, i
 
 	bool r = false;
 
-	float pen = a->shape.box.extents.x - min.x;
+	float pen = b->shape.box.extents.x - min.x;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
 		normal = glm::vec2(b->shape.box.local.x, b->shape.box.local.y);
 		r = true;
 		depth = pen;
 	}
 
-	pen = max.x + a->shape.box.extents.x;
+	pen = max.x + b->shape.box.extents.x;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
 		normal = -glm::vec2(b->shape.box.local.x, b->shape.box.local.y);
 		r = true;
 		depth = pen;
 	}
 
-	pen = a->shape.box.extents.y - min.y;
+	pen = b->shape.box.extents.y - min.y;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
 		normal = glm::vec2(b->shape.box.local.z, b->shape.box.local.w);
 		r = true;
 		depth = pen;
 	}
 
-	pen = max.y + a->shape.box.extents.y;
+	pen = max.y + b->shape.box.extents.y;
 	if (pen > 0.0f && (pen < depth || depth == 0)) {
 		normal = -glm::vec2(b->shape.box.local.z, b->shape.box.local.w);
 		r = true;
@@ -321,9 +323,9 @@ void RigidbodySim::Update() {
 
 						/* Positionally resolve the collision, to prevent sinking
 						 * when multiple objects are stacked on each other. */
-						 //glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
-						 //a->position -= a_inv_mass * correction;
-						 //b->position += b_inv_mass * correction;
+						 glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
+						 a->position -= a_inv_mass * correction;
+						 b->position += b_inv_mass * correction;
 
 						glm::vec2 tangent = { cd.normal.y, -cd.normal.x };
 						float r1 = glm::dot(glm::normalize(cd.position - a->position), tangent);
@@ -344,25 +346,25 @@ void RigidbodySim::Update() {
 							b->add_force(force, cd.position - b->position);
 
 							/* Calculate and apply a friction impulse. */
-							//auto o_r_vel = r_vel;
-							//r_vel = b->velocity - a->velocity;
-							//glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
-							//float t_j = (1.0f + r) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2);
+							auto o_r_vel = r_vel;
+							r_vel = b->velocity - a->velocity;
+							glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
+							float t_j = (1.0f + r) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2);
 
-							///* Average of both bodies' friction values. */
-							//float stat_fric = (a->stat_friction + b->stat_friction) / 2;
+							/* Average of both bodies' friction values. */
+							float stat_fric = (a->stat_friction + b->stat_friction) / 2;
 
-							//glm::vec2 fric_imp;
-							//if (fabs(t_j) < j * stat_fric) {
-							//	fric_imp = t_j * t;
-							//}
-							//else {
-							//	float kin_fric = (a->kin_friction + b->kin_friction) / 2;
-							//	fric_imp = -j * t * kin_fric;
-							//}
+							glm::vec2 fric_imp;
+							if (fabs(t_j) < j * stat_fric) {
+								fric_imp = t_j * t;
+							}
+							else {
+								float kin_fric = (a->kin_friction + b->kin_friction) / 2;
+								fric_imp = -j * t * kin_fric;
+							}
 
-							//a->add_force(-fric_imp * t, cd.position - a->position);
-							//b->add_force(fric_imp * t, cd.position - b->position);
+							a->add_force(-fric_imp * t, cd.position - a->position);
+							b->add_force(fric_imp * t, cd.position - b->position);
 						}
 
 					}
