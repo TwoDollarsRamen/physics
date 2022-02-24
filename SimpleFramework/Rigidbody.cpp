@@ -124,6 +124,8 @@ static CollisionData box_vs_box(Rigidbody* a, Rigidbody* b) {
 
 	r.position /= (float)contact_count;
 
+	g_lines->DrawCircle(r.position, 0.1f, { 1.0f, 0.0f, 0.0f });
+
 	r.a = a;
 	r.b = b;
 
@@ -204,6 +206,15 @@ static CollisionData plane_vs_box(Rigidbody* a, Rigidbody* b) {
 
 	if (contact_count > 0) {
 		contact /= (float)contact_count;
+
+		float m = 0.0f;
+		float y = m * contact.x + a->position.x;
+
+		float depth = glm::dot(contact, a->shape.plane.normal) - a->position.x;
+
+		b->position -= a->shape.plane.normal * depth;
+
+		g_lines->DrawCircle(contact, 0.1f, { 1.0f, 0.0f, 0.0f });
 		
 		glm::vec2 local_contact = contact - b->position;
 
@@ -323,9 +334,9 @@ void RigidbodySim::Update() {
 
 						/* Positionally resolve the collision, to prevent sinking
 						 * when multiple objects are stacked on each other. */
-						 glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
-						 a->position -= a_inv_mass * correction;
-						 b->position += b_inv_mass * correction;
+						glm::vec2 correction = (b_inv_mass / (a_inv_mass + b_inv_mass)) * cd.normal * cd.depth;
+						a->position -= a_inv_mass * correction;
+						b->position += b_inv_mass * correction;
 
 						glm::vec2 tangent = { cd.normal.y, -cd.normal.x };
 						float r1 = glm::dot(glm::normalize(cd.position - a->position), tangent);
@@ -344,29 +355,7 @@ void RigidbodySim::Update() {
 							glm::vec2 force = j * cd.normal;
 							a->add_force(-force, cd.position - a->position);
 							b->add_force(force, cd.position - b->position);
-
-							/* Calculate and apply a friction impulse. */
-							auto o_r_vel = r_vel;
-							r_vel = b->velocity - a->velocity;
-							glm::vec2 t = glm::normalize(r_vel - glm::dot(o_r_vel, cd.normal) * cd.normal);
-							float t_j = (1.0f + r) * mass_a * mass_b / (mass_a + mass_b) * (v1 - v2);
-
-							/* Average of both bodies' friction values. */
-							float stat_fric = (a->stat_friction + b->stat_friction) / 2;
-
-							glm::vec2 fric_imp;
-							if (fabs(t_j) < j * stat_fric) {
-								fric_imp = t_j * t;
-							}
-							else {
-								float kin_fric = (a->kin_friction + b->kin_friction) / 2;
-								fric_imp = -j * t * kin_fric;
-							}
-
-							a->add_force(-fric_imp * t, cd.position - a->position);
-							b->add_force(fric_imp * t, cd.position - b->position);
 						}
-
 					}
 				}
 			}
